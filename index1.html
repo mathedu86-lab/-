@@ -1,0 +1,104 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import tkinter as tk
+from tkinter import ttk
+
+class FunctionSimulator:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("유리수/무리수 함수 그래프 시뮬레이터")
+        self.root.geometry("1000アプリx600")
+
+        # 현재 선택된 함수 상태 (기본값)
+        self.rat_choice = "1"
+        self.irr_choice = "-1"
+
+        # 레이아웃 설정
+        self.left_frame = tk.Frame(self.root)
+        self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.right_frame = tk.Frame(self.root, width=250, bg="#f0f0f0")
+        self.right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
+
+        # 그래프 초기화
+        self.fig, self.ax = plt.subplots(figsize=(6, 6))
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.left_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        self.setup_ui()
+        self.update_graph()
+
+    def setup_ui(self):
+        # 오른쪽 패널 구성
+        tk.Label(self.right_frame, text="[유리수일 때 f(x)]", font=('Arial', 12, 'bold'), bg="#f0f0f0").pack(pady=(20, 10))
+        
+        rat_btns = [("f(x) = 1", "1"), ("f(x) = x", "x"), ("f(x) = x²", "x^2")]
+        for text, val in rat_btns:
+            btn = tk.Button(self.right_frame, text=text, width=20, 
+                            command=lambda v=val: self.set_rational(v))
+            btn.pack(pady=5)
+
+        tk.Label(self.right_frame, text="\n[무리수일 때 f(x)]", font=('Arial', 12, 'bold'), bg="#f0f0f0").pack(pady=(20, 10))
+        
+        irr_btns = [("f(x) = -1", "-1"), ("f(x) = -x", "-x"), ("f(x) = -x²", "-x^2")]
+        for text, val in irr_btns:
+            btn = tk.Button(self.right_frame, text=text, width=20, 
+                            command=lambda v=val: self.set_irrational(v))
+            btn.pack(pady=5)
+
+        # 설명 라벨
+        desc = ("\n\n* 파란 점: 유리수 지점\n* 빨간 점: 무리수 지점\n"
+                "(시뮬레이션을 위해 샘플링된\n 점들로 표현되었습니다.)")
+        tk.Label(self.right_frame, text=desc, justify=tk.LEFT, bg="#f0f0f0").pack(pady=20)
+
+    def set_rational(self, val):
+        self.rat_choice = val
+        self.update_graph()
+
+    def set_irrational(self, val):
+        self.irr_choice = val
+        self.update_graph()
+
+    def calculate_y(self, x_vals, choice):
+        if choice == "1": return np.ones_like(x_vals)
+        elif choice == "x": return x_vals
+        elif choice == "x^2": return x_vals**2
+        elif choice == "-1": return -np.ones_like(x_vals)
+        elif choice == "-x": return -x_vals
+        elif choice == "-x^2": return -(x_vals**2)
+        return x_vals
+
+    def update_graph(self):
+        self.ax.clear()
+        
+        # x축 범위 설정 (-5 to 5)
+        num_points = 2000
+        x = np.linspace(-5, 5, num_points)
+        
+        # 시각적 표현을 위해 홀수 인덱스는 유리수, 짝수 인덱스는 무리수로 가정 (시뮬레이션)
+        x_rat = x[::2]
+        x_irr = x[1::2]
+
+        y_rat = self.calculate_y(x_rat, self.rat_choice)
+        y_irr = self.calculate_y(x_irr, self.irr_choice)
+
+        # 그래프 그리기
+        self.ax.scatter(x_rat, y_rat, color='blue', s=2, label=f'Rational: {self.rat_choice}')
+        self.ax.scatter(x_irr, y_irr, color='red', s=2, label=f'Irrational: {self.irr_choice}')
+
+        # 설정
+        self.ax.axhline(0, color='black', linewidth=1)
+        self.ax.axvline(0, color='black', linewidth=1)
+        self.ax.set_xlim(-5, 5)
+        self.ax.set_ylim(-25, 25) # x^2 그래프를 고려한 범위
+        self.ax.grid(True, linestyle=':', alpha=0.6)
+        self.ax.set_title(f"Graph: Q → {self.rat_choice} / I → {self.irr_choice}")
+        self.ax.legend(loc='upper right')
+
+        self.canvas.draw()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = FunctionSimulator(root)
+    root.mainloop()
