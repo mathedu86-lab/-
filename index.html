@@ -1,507 +1,104 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>유리수/무리수 분기 함수 그래프 시뮬레이터</title>
-  <style>
-    :root {
-      --bg: #0f1220;
-      --panel: #171a2d;
-      --text: #e9ecff;
-      --muted: #aab2ff;
-      --grid: rgba(255,255,255,0.10);
-      --axis: rgba(255,255,255,0.35);
-      --btn: #24284a;
-      --btnHover: #2d3260;
-      --btnActive: #4b59ff;
-      --shadow: rgba(0,0,0,0.35);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", Arial, sans-serif;
-      background: radial-gradient(900px 500px at 15% 10%, #1a1e3a 0%, var(--bg) 60%);
-      color: var(--text);
-    }
-    .wrap {
-      height: 100vh;
-      display: grid;
-      grid-template-columns: 1fr 340px; /* 왼쪽 그래프, 오른쪽 버튼 */
-      gap: 16px;
-      padding: 16px;
-    }
-    .left, .right {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      box-shadow: 0 10px 30px var(--shadow);
-      overflow: hidden;
-    }
-    .left {
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      padding: 14px 14px 10px 14px;
-    }
-    .title {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 12px;
-      padding-bottom: 10px;
-    }
-    .title h1 {
-      margin: 0;
-      font-size: 18px;
-      letter-spacing: -0.2px;
-    }
-    .title .sub {
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      background: rgba(0,0,0,0.18);
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-    .footer {
-      margin-top: 10px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .footer .box {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 10px;
-      line-height: 1.5;
-    }
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import tkinter as tk
+from tkinter import ttk
 
-    .right {
-      padding: 14px;
-      display: grid;
-      grid-template-rows: auto auto 1fr;
-      gap: 14px;
-    }
-    .panel {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      padding: 12px;
-    }
-    .panel h2 {
-      margin: 0 0 10px 0;
-      font-size: 14px;
-      color: var(--text);
-    }
-    .btnrow {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 10px 10px;
-      background: var(--btn);
-      color: var(--text);
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.05s ease, background 0.15s ease;
-      user-select: none;
-    }
-    button:hover { background: var(--btnHover); }
-    button:active { transform: translateY(1px); }
-    button.active { background: var(--btnActive); }
+class FunctionSimulator:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("유리수/무리수 함수 그래프 시뮬레이터")
+        self.root.geometry("1000アプリx600")
 
-    .controls {
-      display: grid;
-      gap: 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .row {
-      display: grid;
-      grid-template-columns: 110px 1fr 54px;
-      align-items: center;
-      gap: 8px;
-    }
-    input[type="range"] { width: 100%; }
-    .mini {
-      font-family: ui-monospace, Menlo, Consolas, monospace;
-      color: var(--text);
-      text-align: right;
-    }
-    .legend {
-      margin-top: 10px;
-      display: grid;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-    .dot {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      margin-right: 6px;
-      vertical-align: -1px;
-    }
-    .dot.r { background: rgba(255,255,255,0.92); }
-    .dot.i { background: rgba(130,180,255,0.70); }
-    .hint { color: rgba(255,255,255,0.72); }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <!-- LEFT: graph -->
-    <div class="left">
-      <div class="title">
-        <h1>유리수/무리수 분기 함수 그래프</h1>
-        <div class="sub">샘플링 시뮬레이션 (ℝ 전부를 그릴 수는 없어서 “대표 점들”만 표시)</div>
-      </div>
+        # 현재 선택된 함수 상태 (기본값)
+        self.rat_choice = "1"
+        self.irr_choice = "-1"
 
-      <canvas id="plot"></canvas>
+        # 레이아웃 설정
+        self.left_frame = tk.Frame(self.root)
+        self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-      <div class="footer">
-        <div class="box" id="statusBox"></div>
-        <div class="box">
-          <div><span class="dot r"></span><b>유리수 샘플</b>: 분모 ≤ Q 인 분수들을 찍음</div>
-          <div><span class="dot i"></span><b>무리수 샘플</b>: 난수로 뽑은 실수(거의 확실히 무리수)</div>
-          <div class="hint">팁: “분모 상한 Q”를 올리면 유리수 점들이 더 촘촘해져요.</div>
-        </div>
-      </div>
-    </div>
+        self.right_frame = tk.Frame(self.root, width=250, bg="#f0f0f0")
+        self.right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
 
-    <!-- RIGHT: controls -->
-    <div class="right">
-      <div class="panel">
-        <h2>유리수에서의 함수식 선택</h2>
-        <div class="btnrow" id="btnRational">
-          <button data-expr="1">1</button>
-          <button data-expr="x">x</button>
-          <button data-expr="x^2">x^2</button>
-        </div>
-      </div>
+        # 그래프 초기화
+        self.fig, self.ax = plt.subplots(figsize=(6, 6))
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.left_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-      <div class="panel">
-        <h2>무리수에서의 함수식 선택</h2>
-        <div class="btnrow" id="btnIrrational">
-          <button data-expr="-1">-1</button>
-          <button data-expr="-x">-x</button>
-          <button data-expr="-x^2">-x^2</button>
-        </div>
-      </div>
+        self.setup_ui()
+        self.update_graph()
 
-      <div class="panel">
-        <h2>표시 범위 / 샘플 설정</h2>
-        <div class="controls">
-          <div class="row">
-            <div>x 최소</div>
-            <input id="xmin" type="range" min="-10" max="0" step="0.5" value="-3">
-            <div class="mini" id="xminV"></div>
-          </div>
-          <div class="row">
-            <div>x 최대</div>
-            <input id="xmax" type="range" min="0" max="10" step="0.5" value="3">
-            <div class="mini" id="xmaxV"></div>
-          </div>
-          <div class="row">
-            <div>y 범위(±)</div>
-            <input id="yspan" type="range" min="1" max="20" step="1" value="6">
-            <div class="mini" id="yspanV"></div>
-          </div>
-          <div class="row">
-            <div>유리수 분모 Q</div>
-            <input id="qmax" type="range" min="10" max="200" step="5" value="60">
-            <div class="mini" id="qmaxV"></div>
-          </div>
-          <div class="row">
-            <div>무리수 샘플 수</div>
-            <input id="nI" type="range" min="200" max="8000" step="200" value="3000">
-            <div class="mini" id="nIV"></div>
-          </div>
-          <button id="reroll">무리수 샘플 다시 뽑기</button>
-        </div>
+    def setup_ui(self):
+        # 오른쪽 패널 구성
+        tk.Label(self.right_frame, text="[유리수일 때 f(x)]", font=('Arial', 12, 'bold'), bg="#f0f0f0").pack(pady=(20, 10))
+        
+        rat_btns = [("f(x) = 1", "1"), ("f(x) = x", "x"), ("f(x) = x²", "x^2")]
+        for text, val in rat_btns:
+            btn = tk.Button(self.right_frame, text=text, width=20, 
+                            command=lambda v=val: self.set_rational(v))
+            btn.pack(pady=5)
 
-        <div class="legend" id="formulaBox"></div>
-      </div>
-    </div>
-  </div>
+        tk.Label(self.right_frame, text="\n[무리수일 때 f(x)]", font=('Arial', 12, 'bold'), bg="#f0f0f0").pack(pady=(20, 10))
+        
+        irr_btns = [("f(x) = -1", "-1"), ("f(x) = -x", "-x"), ("f(x) = -x²", "-x^2")]
+        for text, val in irr_btns:
+            btn = tk.Button(self.right_frame, text=text, width=20, 
+                            command=lambda v=val: self.set_irrational(v))
+            btn.pack(pady=5)
 
-<script>
-  // ---------- Utility: expressions ----------
-  function evalExpr(expr, x) {
-    switch (expr) {
-      case "1": return 1;
-      case "x": return x;
-      case "x^2": return x*x;
-      case "-1": return -1;
-      case "-x": return -x;
-      case "-x^2": return -(x*x);
-      default: return NaN;
-    }
-  }
+        # 설명 라벨
+        desc = ("\n\n* 파란 점: 유리수 지점\n* 빨간 점: 무리수 지점\n"
+                "(시뮬레이션을 위해 샘플링된\n 점들로 표현되었습니다.)")
+        tk.Label(self.right_frame, text=desc, justify=tk.LEFT, bg="#f0f0f0").pack(pady=20)
 
-  // ---------- Sampling rationals ----------
-  // Generate rationals p/q within [xmin, xmax] with 1<=q<=Q, and xmin <= p/q <= xmax
-  function sampleRationals(xmin, xmax, Q) {
-    const pts = [];
-    // Keep unique by string key (reduce duplicates across equivalent fractions)
-    const seen = new Set();
+    def set_rational(self, val):
+        self.rat_choice = val
+        self.update_graph()
 
-    for (let q = 1; q <= Q; q++) {
-      const pMin = Math.ceil(xmin * q);
-      const pMax = Math.floor(xmax * q);
-      for (let p = pMin; p <= pMax; p++) {
-        const x = p / q;
-        const key = x.toFixed(10); // enough for uniqueness in plotting
-        if (!seen.has(key)) {
-          seen.add(key);
-          pts.push(x);
-        }
-      }
-    }
-    pts.sort((a,b)=>a-b);
-    return pts;
-  }
+    def set_irrational(self, val):
+        self.irr_choice = val
+        self.update_graph()
 
-  // ---------- Sampling irrationals ----------
-  // Random reals in [xmin, xmax] (almost surely irrational)
-  function sampleIrrationals(xmin, xmax, N) {
-    const pts = new Array(N);
-    const span = xmax - xmin;
-    for (let i = 0; i < N; i++) pts[i] = xmin + Math.random() * span;
-    return pts;
-  }
+    def calculate_y(self, x_vals, choice):
+        if choice == "1": return np.ones_like(x_vals)
+        elif choice == "x": return x_vals
+        elif choice == "x^2": return x_vals**2
+        elif choice == "-1": return -np.ones_like(x_vals)
+        elif choice == "-x": return -x_vals
+        elif choice == "-x^2": return -(x_vals**2)
+        return x_vals
 
-  // ---------- Plotting ----------
-  const canvas = document.getElementById("plot");
-  const ctx = canvas.getContext("2d");
+    def update_graph(self):
+        self.ax.clear()
+        
+        # x축 범위 설정 (-5 to 5)
+        num_points = 2000
+        x = np.linspace(-5, 5, num_points)
+        
+        # 시각적 표현을 위해 홀수 인덱스는 유리수, 짝수 인덱스는 무리수로 가정 (시뮬레이션)
+        x_rat = x[::2]
+        x_irr = x[1::2]
 
-  function fitCanvasToCSS() {
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
-  }
+        y_rat = self.calculate_y(x_rat, self.rat_choice)
+        y_irr = self.calculate_y(x_irr, self.irr_choice)
 
-  function drawAxes(xmin, xmax, ymin, ymax) {
-    const w = canvas.getBoundingClientRect().width;
-    const h = canvas.getBoundingClientRect().height;
+        # 그래프 그리기
+        self.ax.scatter(x_rat, y_rat, color='blue', s=2, label=f'Rational: {self.rat_choice}')
+        self.ax.scatter(x_irr, y_irr, color='red', s=2, label=f'Irrational: {self.irr_choice}')
 
-    // background grid
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "rgba(0,0,0,0)";
-    ctx.fillRect(0, 0, w, h);
+        # 설정
+        self.ax.axhline(0, color='black', linewidth=1)
+        self.ax.axvline(0, color='black', linewidth=1)
+        self.ax.set_xlim(-5, 5)
+        self.ax.set_ylim(-25, 25) # x^2 그래프를 고려한 범위
+        self.ax.grid(True, linestyle=':', alpha=0.6)
+        self.ax.set_title(f"Graph: Q → {self.rat_choice} / I → {self.irr_choice}")
+        self.ax.legend(loc='upper right')
 
-    // grid lines (10x)
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 1; i < 10; i++) {
-      const gx = (w * i) / 10;
-      ctx.moveTo(gx, 0); ctx.lineTo(gx, h);
-      const gy = (h * i) / 10;
-      ctx.moveTo(0, gy); ctx.lineTo(w, gy);
-    }
-    ctx.stroke();
+        self.canvas.draw()
 
-    // axes (x=0, y=0 if in range)
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--axis').trim();
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-
-    // y-axis at x=0
-    if (xmin <= 0 && 0 <= xmax) {
-      const x0 = (0 - xmin) / (xmax - xmin) * w;
-      ctx.moveTo(x0, 0); ctx.lineTo(x0, h);
-    }
-    // x-axis at y=0
-    if (ymin <= 0 && 0 <= ymax) {
-      const y0 = h - (0 - ymin) / (ymax - ymin) * h;
-      ctx.moveTo(0, y0); ctx.lineTo(w, y0);
-    }
-    ctx.stroke();
-
-    // labels (corners)
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.font = "12px ui-monospace, Menlo, Consolas, monospace";
-    ctx.fillText(`x∈[${xmin}, ${xmax}]`, 10, 18);
-    ctx.fillText(`y∈[${ymin}, ${ymax}]`, 10, 36);
-  }
-
-  function toCanvasXY(x, y, xmin, xmax, ymin, ymax, w, h) {
-    const cx = (x - xmin) / (xmax - xmin) * w;
-    const cy = h - (y - ymin) / (ymax - ymin) * h;
-    return [cx, cy];
-  }
-
-  function drawPoints(xs, expr, style, xmin, xmax, ymin, ymax) {
-    const w = canvas.getBoundingClientRect().width;
-    const h = canvas.getBoundingClientRect().height;
-
-    ctx.fillStyle = style;
-    // size by count
-    const r = xs.length > 4000 ? 1.2 : 2.0;
-
-    for (let i = 0; i < xs.length; i++) {
-      const x = xs[i];
-      const y = evalExpr(expr, x);
-      if (y < ymin || y > ymax) continue;
-      const [cx, cy] = toCanvasXY(x, y, xmin, xmax, ymin, ymax, w, h);
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // ---------- UI wiring ----------
-  const btnR = document.getElementById("btnRational");
-  const btnI = document.getElementById("btnIrrational");
-  const xminEl = document.getElementById("xmin");
-  const xmaxEl = document.getElementById("xmax");
-  const yspanEl = document.getElementById("yspan");
-  const qmaxEl = document.getElementById("qmax");
-  const nIEl = document.getElementById("nI");
-  const rerollBtn = document.getElementById("reroll");
-
-  const xminV = document.getElementById("xminV");
-  const xmaxV = document.getElementById("xmaxV");
-  const yspanV = document.getElementById("yspanV");
-  const qmaxV = document.getElementById("qmaxV");
-  const nIV = document.getElementById("nIV");
-
-  const formulaBox = document.getElementById("formulaBox");
-  const statusBox = document.getElementById("statusBox");
-
-  let exprR = "1";
-  let exprI = "-1";
-
-  let irrXs = [];
-
-  function setActive(container, expr) {
-    [...container.querySelectorAll("button")].forEach(b => {
-      b.classList.toggle("active", b.dataset.expr === expr);
-    });
-  }
-
-  function clampRanges() {
-    let xmin = parseFloat(xminEl.value);
-    let xmax = parseFloat(xmaxEl.value);
-    if (xmin >= xmax) {
-      // keep at least 0.5 gap
-      if (event && event.target === xminEl) xmin = xmax - 0.5;
-      else xmax = xmin + 0.5;
-      xminEl.value = xmin;
-      xmaxEl.value = xmax;
-    }
-    return [xmin, xmax];
-  }
-
-  function updateLabels() {
-    const [xmin, xmax] = clampRanges();
-    const yspan = parseFloat(yspanEl.value);
-    const Q = parseInt(qmaxEl.value, 10);
-    const NI = parseInt(nIEl.value, 10);
-
-    xminV.textContent = xmin.toFixed(1);
-    xmaxV.textContent = xmax.toFixed(1);
-    yspanV.textContent = yspan.toFixed(0);
-    qmaxV.textContent = Q.toString();
-    nIV.textContent = NI.toString();
-
-    formulaBox.innerHTML = `
-      <div>현재 함수: <b>f(x)=</b>
-        <span class="hint">x가 유리수이면</span> <b>${exprR}</b>,
-        <span class="hint">x가 무리수이면</span> <b>${exprI}</b>
-      </div>
-      <div class="hint">표시 구간은 [xmin, xmax]만 시각화합니다. (정의역은 ℝ 전체)</div>
-    `;
-  }
-
-  function rerollIrrationals() {
-    const [xmin, xmax] = clampRanges();
-    const NI = parseInt(nIEl.value, 10);
-    irrXs = sampleIrrationals(xmin, xmax, NI);
-  }
-
-  function render() {
-    fitCanvasToCSS();
-    updateLabels();
-
-    const [xmin, xmax] = clampRanges();
-    const yspan = parseFloat(yspanEl.value);
-    const ymin = -yspan;
-    const ymax = yspan;
-
-    const Q = parseInt(qmaxEl.value, 10);
-    if (irrXs.length === 0) rerollIrrationals();
-
-    // rationals
-    const ratXs = sampleRationals(xmin, xmax, Q);
-
-    drawAxes(xmin, xmax, ymin, ymax);
-
-    // draw irrationals first (lighter), then rationals (stronger)
-    drawPoints(irrXs, exprI, "rgba(130,180,255,0.45)", xmin, xmax, ymin, ymax);
-    drawPoints(ratXs, exprR, "rgba(255,255,255,0.90)", xmin, xmax, ymin, ymax);
-
-    statusBox.innerHTML = `
-      <div><b>표시 중</b></div>
-      <div>유리수 샘플 수: <b>${ratXs.length.toLocaleString()}</b> (분모 ≤ ${Q})</div>
-      <div>무리수 샘플 수: <b>${irrXs.length.toLocaleString()}</b> (난수 샘플)</div>
-      <div class="hint">주의: “유리수/무리수 전체”의 그래프가 아니라, 밀집성을 보여주는 시뮬레이션입니다.</div>
-    `;
-  }
-
-  // Button events
-  btnR.addEventListener("click", (e) => {
-    const b = e.target.closest("button");
-    if (!b) return;
-    exprR = b.dataset.expr;
-    setActive(btnR, exprR);
-    render();
-  });
-
-  btnI.addEventListener("click", (e) => {
-    const b = e.target.closest("button");
-    if (!b) return;
-    exprI = b.dataset.expr;
-    setActive(btnI, exprI);
-    render();
-  });
-
-  // Sliders
-  [xminEl, xmaxEl, yspanEl, qmaxEl, nIEl].forEach(el => {
-    el.addEventListener("input", () => {
-      // if x-range or NI changed, refresh irrationals to match new range/count
-      if (el === xminEl || el === xmaxEl || el === nIEl) rerollIrrationals();
-      render();
-    });
-  });
-
-  rerollBtn.addEventListener("click", () => {
-    rerollIrrationals();
-    render();
-  });
-
-  window.addEventListener("resize", () => render());
-
-  // init
-  setActive(btnR, exprR);
-  setActive(btnI, exprI);
-  rerollIrrationals();
-  render();
-</script>
-</body>
-</html>
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = FunctionSimulator(root)
+    root.mainloop()
